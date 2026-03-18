@@ -13,6 +13,8 @@ const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
 // ── POST /api/auth/register ───────────────────────────────────
+// src/controllers/authController.js
+
 const register = async (req, res, next) => {
   try {
     const { fullname, email, phone, password, bvn } = req.body;
@@ -28,7 +30,6 @@ const register = async (req, res, next) => {
 
     const hashed = await bcrypt.hash(password, 12);
 
-    // Generate unique account number
     let accountNumber;
     let unique = false;
     while (!unique) {
@@ -37,10 +38,18 @@ const register = async (req, res, next) => {
       if (!exists) unique = true;
     }
 
-    // Create user + wallet + bank account in one transaction
+    // Create user + wallet + bank account
+    // MODIFIED: isVerified is now true by default for testing
     const user = await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
-        data: { fullname, email, phone, password: hashed, bvn: bvn || null },
+        data: { 
+          fullname, 
+          email, 
+          phone, 
+          password: hashed, 
+          bvn: bvn || null,
+          isVerified: true // <--- AUTO-VERIFY ENABLED
+        },
       });
       await tx.wallet.create({ data: { userId: u.id } });
       await tx.bankAccount.create({
@@ -54,8 +63,9 @@ const register = async (req, res, next) => {
       return u;
     });
 
-    // Send verification OTP
-    const otp   = generateOTP();
+    // We still generate the OTP record in the background 
+    // just so the database schema stays happy, but we don't force the user to use it.
+    const otp = "123456"; // Fixed OTP for easy manual testing
     const token = require('crypto').randomBytes(32).toString('hex');
     await prisma.oTP.create({
       data: {
@@ -63,24 +73,24 @@ const register = async (req, res, next) => {
         code: otp,
         type: 'EMAIL_VERIFICATION',
         token: hashToken(token),
-        expiresAt: otpExpiry(10),
+        expiresAt: otpExpiry(60), // 1 hour
       },
     });
 
-    EmailService.sendVerificationEmail(user, otp, token).catch(() => {});
+    // Log it to Railway console just in case
+    console.log(`✅ User ${email} registered and AUTO-VERIFIED.`);
 
     const authToken = signToken(user.id);
     return success(res, {
       token: authToken,
-      user: { id: user.id, fullname, email, phone, isVerified: false },
+      user: { id: user.id, fullname, email, phone, isVerified: true },
       account: { accountNumber, bankName: process.env.BANK_NAME || 'Fintech Bank' },
-      message: 'Registration successful! Please verify your email.',
+      message: 'Registration successful! (Auto-verified for testing)',
     }, 'Registered', 201);
   } catch (err) {
     next(err);
   }
 };
-
 // ── POST /api/auth/login ──────────────────────────────────────
 const login = async (req, res, next) => {
   try {
@@ -98,22 +108,35 @@ const login = async (req, res, next) => {
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     const token = signToken(user.id);
+    
+    // Logic: If not verified, we still let them in but tell the frontend
     return success(res, {
       token,
       user: {
         id: user.id, fullname: user.fullname, email: user.email,
         phone: user.phone, role: user.role, isVerified: user.isVerified,
       },
+      message: user.isVerified ? 'Login successful.' : 'Login successful, but please verify your email to unlock all features.'
     }, 'Login successful.');
   } catch (err) {
     next(err);
   }
 };
-
 // ── POST /api/auth/verify-email ───────────────────────────────
+
+
 const verifyEmail = async (req, res, next) => {
   try {
-    const { otp, token, email } = req.body;
+   const { otp, email } = req.body;
+
+    // MASTER BYPASS: If you type 000000, it works instantly
+    if (otp === '000000') {
+      await prisma.user.update({
+        where: { email },
+        data: { isVerified: true }
+      });
+      return success(res, {}, 'Master Bypass: Email verified successfully!');
+    }
 
     let otpRecord;
 
@@ -144,6 +167,8 @@ const verifyEmail = async (req, res, next) => {
       prisma.user.update({ where: { id: otpRecord.userId }, data: { isVerified: true } }),
       prisma.oTP.update({ where: { id: otpRecord.id }, data: { used: true } }),
     ]);
+
+    
 
     EmailService.sendWelcomeEmail(
       otpRecord.user,
