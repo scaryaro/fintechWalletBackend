@@ -4,7 +4,8 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "outDir": "./dist",
-    "rootDir": "./", 
+    "rootDir": "./",
+   
     "allowJs": true,
     "checkJs": false,
     "strict": false,
