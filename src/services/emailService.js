@@ -3,15 +3,18 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host:   process.env.EMAIL_HOST   || 'smtp.gmail.com',
-  port:   parseInt(process.env.EMAIL_PORT) || 587,
-  secure: false,
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.EMAIL_PORT) || 465,
+  // If port is 465, secure must be true. For 587, it must be false.
+  secure: parseInt(process.env.EMAIL_PORT) === 465, 
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-
+  // Adding a timeout setting so it doesn't hang forever
+  connectionTimeout: 10000, // 10 seconds
 });
+
 
 transporter.verify((error, success) => {
   if (error) {
@@ -39,7 +42,7 @@ const EmailService = {
     try {
         const result = await transporter.sendMail({
       from,
-      
+
       to: user.email,
       subject: `Verify your ${appName} account`,
       html: `
