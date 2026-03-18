@@ -1,58 +1,63 @@
 // src/services/emailService.js
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-// Ensure the API Key is loaded
-if (!process.env.RESEND_API_KEY) {
-  console.warn("⚠️ WARNING: RESEND_API_KEY is not defined in environment variables.");
-}
+// ── Transporter Configuration ──────────────────────────────────
+// Brevo uses standard SMTP. Port 587 (STARTTLS) or 465 (SSL)
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+  port: parseInt(process.env.EMAIL_PORT) || 587,
+  secure: false, // true for 465, false for 587
+  auth: {
+    user: process.env.BREVO_USER,
+    pass: process.env.BREVO_SMTP_KEY,
+  },
+});
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
-const from = process.env.EMAIL_FROM || 'onboarding@resend.dev'; // Default for free tier
+// Verify connection configuration
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ Brevo SMTP Connection Error:", error);
+  } else {
+    console.log("✅ Brevo SMTP Server is ready");
+  }
+});
+
+const from = process.env.EMAIL_FROM || 'no-reply@fintechwallet.com';
 const appName = process.env.APP_NAME || 'FintechWallet';
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const frontendUrl = process.env.FRONTEND_URL || 'https://fintech-wallet-pi.vercel.app';
 
 const EmailService = {
   /**
-   * Internal helper to handle Resend API calls and logging
+   * Internal helper for sending mail with logging
    */
-  async _send(payload) {
+  async _send(mailOptions) {
     try {
-      const { data, error } = await resend.emails.send(payload);
-
-      if (error) {
-        console.error("❌ Resend API Error:", {
-          message: error.message,
-          name: error.name,
-          statusCode: error.statusCode
-        });
-        return { success: false, error };
-      }
-
-      console.log("✅ Email sent successfully. ID:", data.id);
-      return { success: true, data };
+      const info = await transporter.sendMail(mailOptions);
+      console.log("✅ Email sent successfully:", info.messageId);
+      return { success: true, messageId: info.messageId };
     } catch (err) {
-      console.error("🔥 Unexpected System Error in EmailService:", err.message);
+      console.error("🔥 Brevo/Nodemailer Error:", err.message);
       return { success: false, error: err.message };
     }
   },
 
   async sendVerificationEmail(user, otp, token) {
-    console.log(`📧 Attempting Verification Email to: ${user.email}`);
+    console.log(`📧 Sending Verification Email to: ${user.email}`);
     const verifyLink = `${frontendUrl}/verify-email?token=${token}&email=${encodeURIComponent(user.email)}`;
 
     return await this._send({
-      from: `${appName} <${from}>`,
+      from: `"${appName}" <${from}>`,
       to: user.email,
       subject: `Verify your ${appName} account`,
       html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;border:1px solid #eee;padding:20px;border-radius:10px;">
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:20px;border:1px solid #f0f0f0;border-radius:10px;">
           <h2 style="color:#0B3D91;">Welcome to ${appName}, ${user.fullname.split(' ')[0]}!</h2>
-          <p>Use the OTP below to verify your email. It expires in <strong>10 minutes</strong>.</p>
+          <p>Use the OTP below to verify your email. It expires in 10 minutes.</p>
           <div style="background:#F0F4FF;border-radius:12px;padding:24px;text-align:center;margin:24px 0;">
             <span style="font-size:2.4rem;font-weight:700;letter-spacing:0.3em;color:#0B3D91;">${otp}</span>
           </div>
-          <p>Or click below to verify instantly:</p>
+          <p>Or click the button below:</p>
           <a href="${verifyLink}" style="display:inline-block;background:#0B3D91;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Verify Email</a>
         </div>
       `,
@@ -60,17 +65,16 @@ const EmailService = {
   },
 
   async sendPasswordResetEmail(user, otp, token) {
-    console.log(`📧 Attempting Password Reset Email to: ${user.email}`);
+    console.log(`📧 Sending Password Reset Email to: ${user.email}`);
     const resetLink = `${frontendUrl}/reset-password?token=${token}&email=${encodeURIComponent(user.email)}`;
 
     return await this._send({
-      from: `${appName} <${from}>`,
+      from: `"${appName}" <${from}>`,
       to: user.email,
       subject: `Reset your ${appName} password`,
       html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;border:1px solid #eee;padding:20px;">
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:20px;">
           <h2 style="color:#0B3D91;">Password Reset Request</h2>
-          <p>Your OTP (expires in 10 mins):</p>
           <div style="background:#F0F4FF;padding:20px;text-align:center;margin:20px 0;">
             <strong style="font-size:2rem;color:#0B3D91;">${otp}</strong>
           </div>
@@ -81,37 +85,35 @@ const EmailService = {
   },
 
   async sendTransactionAlert(user, { type, amount, balance, reference }) {
-    console.log(`📧 Attempting Transaction Alert to: ${user.email}`);
+    console.log(`📧 Sending Transaction Alert to: ${user.email}`);
     const isCredit = ['DEPOSIT', 'TRANSFER_IN'].includes(type);
 
     return await this._send({
-      from: `${appName} <${from}>`,
+      from: `"${appName}" <${from}>`,
       to: user.email,
       subject: `${isCredit ? '✅ Credit' : '💸 Debit'} Alert — ₦${parseFloat(amount).toLocaleString('en-NG')}`,
       html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;border:1px solid #eee;padding:20px;">
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:20px;">
           <h2 style="${isCredit ? 'color:#00C48C;' : 'color:#FF4D4D;'}">${isCredit ? 'Money Received' : 'Money Sent'}</h2>
           <p>₦${parseFloat(amount).toLocaleString('en-NG')} has been ${isCredit ? 'credited to' : 'debited from'} your wallet.</p>
-          <hr style="border:0;border-top:1px solid #eee;" />
           <p><strong>Reference:</strong> ${reference}</p>
-          <p><strong>Current Balance:</strong> ₦${parseFloat(balance).toLocaleString('en-NG')}</p>
+          <p><strong>Balance:</strong> ₦${parseFloat(balance).toLocaleString('en-NG')}</p>
         </div>
       `,
     });
   },
 
   async sendWelcomeEmail(user, accountNumber) {
-    console.log(`📧 Attempting Welcome Email to: ${user.email}`);
+    console.log(`📧 Sending Welcome Email to: ${user.email}`);
     return await this._send({
-      from: `${appName} <${from}>`,
+      from: `"${appName}" <${from}>`,
       to: user.email,
       subject: `Welcome to ${appName} 🎉`,
       html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;border:1px solid #eee;padding:20px;">
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:20px;">
           <h2 style="color:#0B3D91;">Your wallet is ready, ${user.fullname.split(' ')[0]}!</h2>
           <p><strong>Account Number:</strong> ${accountNumber}</p>
-          <p><strong>Bank:</strong> ${process.env.BANK_NAME || 'Fintech Bank'}</p>
-          <p>Fund your wallet to get started.</p>
+          <p>Fund your wallet and start transacting.</p>
           <a href="${frontendUrl}/dashboard" style="display:inline-block;background:#00C48C;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;">Go to Dashboard</a>
         </div>
       `,
