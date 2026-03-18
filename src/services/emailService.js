@@ -4,18 +4,17 @@ const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT) || 465,
-  // If port is 465, secure must be true. For 587, it must be false.
-  secure: parseInt(process.env.EMAIL_PORT) === 465, 
+  port: 465,          // Switch to 465
+  secure: true,       // MUST be true for port 465
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  // Adding a timeout setting so it doesn't hang forever
-  connectionTimeout: 10000, // 10 seconds
+  // Higher timeout for cloud latency
+  connectionTimeout: 15000, 
+  greetingTimeout: 15000,
+  socketTimeout: 15000,
 });
-
-
 transporter.verify((error, success) => {
   if (error) {
     console.error("❌ SMTP Connection Error:", error);
