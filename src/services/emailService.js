@@ -69,7 +69,7 @@ const EmailService = {
 
   async sendWelcomeEmail(user, accountNumber) {
     console.log(`📧 API: Sending Welcome Email to: ${user.email}`);
-    const html = `<h2>Welcome!</h2><p>Your account is ready. Account Number: <strong>${accountNumber}</strong></p>`;
+    const html = `<h2>Welcome!</h2><p>Your account is ready pls proceed to login. Account Number: <strong>${accountNumber}</strong></p>`;
     return await this._send(user.email, `Welcome to ${appName}!`, html);
   }
 };
