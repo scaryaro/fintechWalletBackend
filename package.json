@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "build": "npx prisma generate && tsc",
-"start": "npx prisma migrate deploy && node dist/index.js",
+    "start": "npx prisma migrate deploy && node dist/index.js",
     "dev": "nodemon src/server.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -25,6 +25,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.9",
+    "typescript": "^5.9.3",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
