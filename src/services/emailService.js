@@ -39,6 +39,7 @@ const EmailService = {
     try {
         const result = await transporter.sendMail({
       from,
+      
       to: user.email,
       subject: `Verify your ${appName} account`,
       html: `
