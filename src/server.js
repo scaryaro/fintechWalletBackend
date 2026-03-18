@@ -10,9 +10,13 @@ const errorHandler = require('./middlewares/errorHandler');
 const prisma       = require('./config/prisma');
 
 const app = express();
+// ── Proxy Trust (CRITICAL FOR RAILWAY/VERCEL) ──────────────────
+// This prevents the 'ERR_ERL_UNEXPECTED_X_FORWARDED_FOR' crash
+app.set('trust proxy', 1); 
 
 // ── Security ──────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(cors({
   origin: 'https://fintech-wallet-pi.vercel.app', // Your Vercel URL
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -20,7 +24,6 @@ app.use(cors({
   credentials: true // Required if you decide to use cookies later
 }));
 
-app.use(express.json());
 
 // ── Body parsing ──────────────────────────────────────────────
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
