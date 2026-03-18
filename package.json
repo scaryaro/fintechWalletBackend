@@ -25,6 +25,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.9",
+    "resend": "^6.9.4",
     "typescript": "^5.9.3",
     "uuid": "^9.0.1"
   },
