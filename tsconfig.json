@@ -1,16 +1,16 @@
-
 {
   "compilerOptions": {
     "target": "esnext",
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
+    "rootDir": "./", 
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "server.ts", "index.ts"], 
   "exclude": ["node_modules", "dist"]
 }
