@@ -14,12 +14,13 @@ const app = express();
 // ── Security ──────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
-    'http://localhost:5000',
-  ],
-  credentials: true,
+  origin: 'https://fintech-wallet-pi.vercel.app', // Your Vercel URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // Required if you decide to use cookies later
 }));
+
+app.use(express.json());
 
 // ── Body parsing ──────────────────────────────────────────────
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
