@@ -10,6 +10,15 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+
+});
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ SMTP Connection Error:", error);
+  } else {
+    console.log("✅ SMTP Server is ready to take messages");
+  }
 });
 
 const from = process.env.EMAIL_FROM || 'FintechWallet <no-reply@fintechwallet.com>';
@@ -19,9 +28,16 @@ const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 const EmailService = {
 
   async sendVerificationEmail(user, otp, token) {
-    if (!process.env.EMAIL_USER) return;
+    console.log(`📧 Attempting to send email to: ${user.email}`);
+    
+    if (!process.env.EMAIL_USER) {
+        console.warn("⚠️ EMAIL_USER is missing. Skipping email send.");
+        return;
+    }
     const verifyLink = `${frontendUrl}/verify-email?token=${token}&email=${encodeURIComponent(user.email)}`;
-    await transporter.sendMail({
+    
+    try {
+        const result = await transporter.sendMail({
       from,
       to: user.email,
       subject: `Verify your ${appName} account`,
@@ -41,7 +57,11 @@ const EmailService = {
           </p>
         </div>
       `,
-    });
+      });
+        console.log("🚀 Email sent successfully:", result.messageId);
+    } catch (err) {
+        console.error("🔥 Nodemailer Error:", err);
+    }
   },
 
   async sendPasswordResetEmail(user, otp, token) {
